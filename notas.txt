@@ -1,0 +1,22 @@
+*EXPRESS
+
+    -Esta vez ejecutamos un servidor http pero inicializado en una clase, lo unico que tengo para agregar es el empleo de diferentes
+    protocolos http, y ademas en el res empleamos el metodo: res.json(), para indicar el retorno de un objeto
+    para que nuestra aplicacion la detecte como tal
+
+*CORS
+
+    -Cors es un middleware para que google o cualquier navegador detecte
+    que nuestra api es segura, asi cualquier agente haga peticiones http
+    desde cualquier direccion.
+
+    La verdad nose lo que hace, pero si no lo usas puede limitar las aplicaciones
+    de tu programa
+
+    Para usarlo lo empleamos como un middleware sobre el app de express:
+    app.use(cors()), y listo
+
+* EXPRESS
+
+    - Tambien vimos como especificar las rutas en un archivo externo,
+    para ello usamos un objeto Router, donde le aplicamos los mismo
