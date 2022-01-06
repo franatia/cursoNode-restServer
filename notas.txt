@@ -1,22 +1,224 @@
-*EXPRESS
+*MONGOOSE
 
-    -Esta vez ejecutamos un servidor http pero inicializado en una clase, lo unico que tengo para agregar es el empleo de diferentes
-    protocolos http, y ademas en el res empleamos el metodo: res.json(), para indicar el retorno de un objeto
-    para que nuestra aplicacion la detecte como tal
+    - Durante esta etapa trabajaremos con MongoDB, para ello creamos un clouster
+    en la pagina de mongo y un Usuario de Acceso, luego lo enlazamos con nuestro
+    MongoDB Compass
 
-*CORS
+    - En el codigo instalamos mongo con 'npm i mongoose', y usamos el siguiente
+    metodo con los parametros especificados aqui para conectar:
 
-    -Cors es un middleware para que google o cualquier navegador detecte
-    que nuestra api es segura, asi cualquier agente haga peticiones http
-    desde cualquier direccion.
+    mongoose.connect(process.env.MONGODB_ATLAS,{
+            useNewUrlParser:true,
+            useUnifiedTopology:true
+        });
+    
+    El primer parametro es una url, la cual la almacenamos como una variable
+    de entorno
 
-    La verdad nose lo que hace, pero si no lo usas puede limitar las aplicaciones
-    de tu programa
+    Por ultimo usamos esa funcion en la clase Server como una promesa :)
 
-    Para usarlo lo empleamos como un middleware sobre el app de express:
-    app.use(cors()), y listo
+    - Ahora crearemos un modelo de cualquier cosa que deseemos almacenar,
+    en este caso un usuario. Para ello importamos de la libreria de mongoose,
+    la clase Schema y un metodo model: const {Schema, model} = require('mongoose');
 
-* EXPRESS
+    Ahora creamos un objeto schema a partir de la clase Schema, como parametro
+    lanzamos un objet '{}', cuyos elementos contienen los datos que deseamos almacenar
+    del usuario, el nombre de los datos seran los key, en la parte de los values
+    especificamos lo siguiente:
 
-    - Tambien vimos como especificar las rutas en un archivo externo,
-    para ello usamos un objeto Router, donde le aplicamos los mismo
+    const UserSchema = Schema( {
+
+        name : {
+
+            type : String, Number, Boolean, etc.,
+
+            required : Puede ser true o false, o sino un array cuyo segundo elemento
+            es un mensaje de error, por ej.: [true, "Nombre no ingresado"]
+
+            unique : Sirve para que el elemento no se repita en ninguno de los objetos,
+            por defecto es false, asi q solo especificalo si es true,
+
+            default : Valor por defecto, por ejemplo 'User123' 
+
+        },
+        ...
+
+    } );
+
+    Por ultimo lo exportamos pero usando la funcion model, de la siguiente forma
+
+    module.exports = model('<obj_name_singular> : User', UserSchema)
+
+    Luego lo usamos en algun archivo y lo importamos como si fuera una clase:
+
+    const User = require('<rute>')
+
+    Para crear un objeto lo hacemos de la siguiente forma
+
+    const user = new User({name})
+
+    Por ultimo lo almacenamos con el metodo save() sobre el obj creado
+
+    await user.save();
+
+    LISTO
+
+    - Tambien podemos modificar los datos que se mostraran como respuesta, por
+    ejemplo el password, modificando el elemento toJSON, de la instancia method,
+    de nuestro objeto schema:
+
+    <schema_obj>.methods.toJSON = function(){
+
+        {__v, password, ...x} = this.toObject();
+
+        return x;
+
+    }
+
+    Lo que hicimos es separar lo que no queriamos y lo que si lo almacenamos
+    en la variable x y la retornamos. Es importante usar una funcion normal,
+    sino la asignacion del this no funciona
+
+    - Buscar objeto desde el id, usamos findById(), sobre la clase schema. Esta
+    tienes sus variaciones, findByIdAndUpdate() o findByIdAndDelete()
+
+    PARAMETROS:
+
+    1. id, ver el id en la base de datos
+    2. (en variaciones de act. y delete) el dato que queremos actualizar, en formato
+    objeto
+
+    - Para buscar una lista de objetos, usamos find()
+    PARAMETROS:
+    1. Condicion que cumpla el objeto en base de datos, por ejemplo un cierto estado
+
+    A este le podemos dar parametros de busqueda, como skip(), que sirve para establecer
+    desde donde, y limit(), hasta donde. Esto reciben un paramtro numerico
+
+    IN CODE:
+
+    <schema_obj>.find(<cond>)
+        .skip(<where_num>)
+        .limit(<lmit_num>);
+
+    - Para contar cuantos objetos tenemos en db, usamos countDocuments()
+    PARAMETROS:
+    1. Condicion que cumpla el objeto en db, por ejemplo un cierto estado
+
+*BCRYPTJS
+
+    -Esta es una libreria para encryptar, en este caso encriptaremos los passwords
+    para ello antes de subir el usuario a base de datos, filtramos el pass para
+    que se encripte. Primero empleamos la funcion bcryptjs.genSaltSync(<num>), esta
+    especifica la cantidad de vueltas que realizara el programa para encriptar, cuantas
+    mas vueltas, mas segura pero mas demora, por defecto es 10, asi que en mi caso
+    no pondria parametros. Importante almacenar el retorno en varaible
+
+    Luego encriptamos el pass mediante bcryptjs.hashSync(<string> : password, <salt_return>),
+    el retorno de esta es el password encriptado asique almacenarlo en variable o directamente
+    asignarlo al objeto usaurio, en mi caso.
+
+    IN CODE:
+
+    // Encriptar el pass
+    const salt = await bcryptjs.genSaltSync();
+
+    usuario.password = await bcryptjs.hashSync(password, salt);
+
+    // Almacenamos usuario
+    await usuario.save();
+
+*EXPRESS-VALIDATOR:
+
+    -Es una libreria para validar las variables dadas en el req.body de los
+    callbacks de la api. Para ello en la especificacion de la url con los
+    protocolos http de express, usamos el metodo check() como middleware,
+    se veria de la siguiente forma
+
+    Importacion:
+
+    const {check} = require('express-validator');
+
+    Router:
+
+    router.post('<path>', [
+        check('<body_element>','<err_msg>').isEmail()
+    ] ,<callback>)
+
+    App:
+
+    app.post('<path>', [
+        check('<body_element>','<err_msg>').isEmail()
+    ] ,<callback>)
+
+    En el sector de isEmail() especificamos la clase de dato que recibimos la cual
+    validara
+
+    Clases de datos:
+
+    *isEmail() : email,
+    *isEmpty() : vacio,
+    *islength({ min:<num>, max:<num>}) : longitud del dato, para un nombre o password, etc.
+    *isIn([<datos_permitidos>]) : Valida si los datos obtenidos se encuentran dentro del
+    array dado
+    *isMongoId(): Controla si el id dado, cumple con las caracteristicas de un id de mongoDB
+
+    Mediante la siguiente forma validamos el dato rol:
+
+    check('role').custom(async (role = '')=>{
+        
+        // Role es un modelo schema como Usuario, con el usamos el findOne({role}),
+        // para buscar si algun dato almacenado en DB coincido con este
+
+        const existsRol = await Role.findOne({role});
+
+        // Si no existe lanzamos error
+
+        if (!existsRol){
+            throw new Error(`El rol ${role} no esta registrado en DB`);
+        }
+
+    })
+
+    Por ulimo en el callback especificamos lo siguiente:
+
+    const {validationResult} = require('express-validator');
+
+    // validation result retorna los errores (si existen)
+
+    const errors = validationResult(req);
+
+    // Validacion de errores (el res es opcional)
+
+    if(!errors.isEmpty()) res.status(400).json(errors);
+
+    // isEmpty : vacio, por eso la negacion
+
+    O si no lo especificamos en el callback lo hacemos un middleware, este
+    recibe 3 parametros req, res y next, next es un callback. Aqui filtraremos
+    todos los errores, y si no ocurren ejecutamos el next
+
+    IN CODE:
+
+    const {validationResult} = rqeuire('express-validator');
+
+    const validator = (req, res, next) =>{
+
+        const errors = validationResult(req);
+
+        if( ! errors.isEmpty()) res.status(400).josn(errors);
+
+        // Si todo es correcto ejecuta el next y prosigue con el callback
+
+        next()
+
+    }
+
+    Lo exportamos y lo importamos en las rutas como middleware, solo como referencia
+    sin ejecutarlo:
+
+    app.post('<path>', [
+        check(...)...,
+        ...,
+        validator
+    ], <callback>);
