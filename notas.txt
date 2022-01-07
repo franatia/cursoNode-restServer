@@ -1,38 +1,178 @@
-*MONGOOSE:
+*GOOGLE SIGN IN:
 
-    -findOne(<cond>), metodo que nos sirve para buscar si existe un elemento
-    con el dato dado
+    - En este apartado veremos como hacer que el usuario inicie sesion con el google sign in,
+    para eso del lado del fornt-end, ejecutamos esto:
 
-    INCODE:
+     <div id="g_id_onload"
+         data-client_id="835873177083-2l6cofu9a0o5fj8g5ogcrtcjmsqrh374.apps.googleusercontent.com"
+         data-login_uri="https://your.domain/your_login_endpoint"
+         data-auto_prompt="false"
+         data-callback="handleCredentialResponse">
+      </div>
 
-    User.findOne({name:'pepito'})
+      <div class="g_id_signin"
+         data-type="standard"
+         data-size="large"
+         data-theme="outline"
+         data-text="sign_in_with"
+         data-shape="rectangular"
+         data-logo_alignment="left">
+      </div>
 
-*BCRYPTJS:
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-    -compareSync(<data1>, <data2>), metodo que nos sirve para buscar si ambos
-    datos dados, son iguales
+    <script>
+        function handleCredentialResponse(response) {
+           
+           // Google Token : ID_TOKEN
 
-    PARAMETROS:
+            const body = {id_token:response.credential}
 
-    1. Dato recibido a comparar
-    2. Dato original para comparar
+            // Send the token to your API
 
+            fetch( <api-url-received> ,{
+                method:'POST',
+                headers:{
+                    'Content-Type':'application/json'
+                },
+                body:JSON.stringify(body)
+            })
+                .then(res=> res.json())
+                .then(res=>{
 
-*JSONWEBTOKEN:
+                     console.log(res);
 
-    - JWT es una libreria para generar un token de autenticacion
-    Par ello usamos el metodo jwt.sing()
-    PARAMETROS:
-    1. payload, son los datos que deseas encryptar pero como objeto {data1,data2...}
-    2. una clave secreta
-    3. {expiresIn:'<x>h','<x>y','<x>d'}, el tiempo de expirasion
-    4. un callback, que filtre un error o el resultado final: (err, token)=>{}
+                     localStorage.setItem('email', res.user.mail);
 
-    este proceso lo encapsulamos en una promesa por si algo fallaba
+                })
+                .catch(console.warn);
+        }
+    </script>
 
-    Para validar un jwt obtenido usamos la funcion verify()
+    *Esto envia el token al back-end de tu aplicacion. Primero insertamos la funcion que verifica el token
 
-    PARAMETROS:
+    const {OAuth2Client} = require('google-auth-library');
 
-    1. token obtenido
-    2. llave secreta
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+    // Dedicated function
+
+    async function googleVerify(token = '') {
+
+        const ticket = await client.verifyIdToken({
+
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,  // Specify the CLIENT_ID of the app that accesses the backend
+            // Or, if multiple clients access the backend:
+            //[CLIENT_ID_1, CLIENT_ID_2, CLIENT_ID_3]
+
+        });
+
+        const {name, picture, email} = ticket.getPayload();
+
+        return{
+            name,
+            picture,
+            email
+        }
+
+    }
+
+    *Luego exportamos la funcion y la insertamos en el callback del metodo post:
+
+    const googleSignIn = async (req = request, res = response, next) =>{
+
+    const {id_token}  = req.body;
+
+    try{
+
+        const {email, name, picture} = await googleVerify(id_token);
+
+        let user = await Usuario.findOne({mail:email});
+
+        if(!user){
+
+            // Tengo que crearlo
+
+            const data = {
+
+                name,
+                mail:email,
+                password:':P',
+                picture,
+                google:true,
+                role:'USER_ROLE'
+
+            };
+
+            user = new Usuario(data);
+
+            await user.save()
+
+        }
+
+        // Si el usuario en DB
+
+        if(!user.status){
+
+            return res.status(401).json({
+
+                msg:'Hable con el adminsitrador, usuario bloqueado'
+
+            });
+
+        };
+
+        const token = await generarJWT(user.id);
+
+        res.json({
+            msg:'Todo OK!',
+            token,
+            user
+
+        });
+
+        }catch(err){
+
+            console.log(err);
+
+            return res.status(400).json({
+
+                ok:false,
+                msg:'El token no se pudo verificar'
+
+            });
+
+        };
+
+    };
+
+    * Exportamos el callback y lo insertamos como argumento del metodo post de express
+
+    router.post('/google',[
+        check('id_token','Es necesario el token de google').not().isEmpty(),
+        validCampos
+    ],googleSignIn);
+
+    * La circulacion del token es a la inversa, primero llega al metodo post, luego al
+    callback y termina en el verificador
+
+    - Ahora veremos como cerrar la sesion. En el mismo script del front-end agregamos esto:
+
+    const button = document.querySelector('#button-signout');
+
+        button.addEventListener('click',()=>{
+
+            console.log(google.accounts.id);
+
+            google.accounts.id.disableAutoSelect();
+
+            google.accounts.id.revoke(localStorage.getItem('email'), done=>{
+
+                localStorage.clear();
+
+                location.reload();
+
+            });
+
+        })

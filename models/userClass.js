@@ -29,6 +29,9 @@ const UsuarioSchema = Schema({
     google:{
         type:Boolean,
         default:false
+    },
+    picture:{
+        type:String
     }
 });
 
